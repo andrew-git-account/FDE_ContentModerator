@@ -233,7 +233,7 @@ Table Messages:
 - id: integer - primary key  
 - external_id: integer not null - external id of a Message
 - title: char[100] not null - message title 
-- body: char[255] not null - message body - serialized to JSON list of messages 
+- body: char[1000] not null - message body - serialized to JSON list of messages 
 - reason: char[20] not null - message validation status 
 - reasoning: char[1024] not null - reasoning of the LLM 
 - user_decision: char[20] default null - decision of a user - one of USER_VERIFIED_POSITIVE, USER_VERIFIED_NEGATIVE
@@ -280,8 +280,43 @@ GIVEN that a message is not complient with the policies THAN endpoint is called 
 
 ### 5.5 Non-Functional Requirements
 
-
 ---
+
+### 5.6 Testing approach 
+
+### Content Moderator Backend 
+
+- Technical verification 
+Generate messages with incorrect request: 
+- missing fields: 
+-- id 
+-- title 
+-- body 
+- non correct values for fields: 
+-- id is not numeric 
+-- title is longer than 100 characters 
+-- body array is empty 
+-- one message in body array has more than 256 characters 
+-- total number of body serialized ot JSON is more than 10000 characters long 
+
+- Business verification
+Generate 10 messages based on policies file that produce positive feedback 
+
+Generate 10 messages based on policies file that produce negative feedback 
+
+Proposed structure for verification: 
+{
+ "test-cases": [
+   {
+    "id": "test-case-001", 
+	"goal": "verify content moderation - off topic", 
+	"message": "message serialized to json including id, title and body", 
+    "expected-result": "negative" 	
+   }
+ ]
+ }
+
+Create a framework to run test cases and verify the result  
 
 
 ## 8. Open Questions & Decisions Needed

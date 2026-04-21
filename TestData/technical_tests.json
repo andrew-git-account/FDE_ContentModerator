@@ -1,0 +1,133 @@
+{
+  "description": "Technical validation test cases for Content Moderator API",
+  "test-cases": [
+    {
+      "id": "tech-001",
+      "goal": "Missing field: id",
+      "message": {
+        "title": "Valid title",
+        "body": ["Valid message content"]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-002",
+      "goal": "Missing field: title",
+      "message": {
+        "id": "123",
+        "body": ["Valid message content"]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-003",
+      "goal": "Missing field: body",
+      "message": {
+        "id": "123",
+        "title": "Valid title"
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-004",
+      "goal": "Non-numeric id",
+      "message": {
+        "id": "abc",
+        "title": "Valid title",
+        "body": ["Valid message content"]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-005",
+      "goal": "Title exceeds 100 characters",
+      "message": {
+        "id": "123",
+        "title": "This is a very long title that exceeds the maximum allowed length of one hundred characters for validation",
+        "body": ["Valid message content"]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-006",
+      "goal": "Empty body array",
+      "message": {
+        "id": "123",
+        "title": "Valid title",
+        "body": []
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-007",
+      "goal": "Body element exceeds 256 characters",
+      "message": {
+        "id": "123",
+        "title": "Valid title",
+        "body": ["This is an extremely long message that exceeds the maximum allowed length of 256 characters per body element. This message continues to provide enough text to reach and exceed that limit so that the validation should fail. Adding more text here to ensure we definitely cross the 256 character threshold for this test case to properly validate the length restriction."]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-008",
+      "goal": "Total body JSON serialized exceeds 10000 characters",
+      "message": {
+        "id": "123",
+        "title": "Valid title",
+        "body": [
+          "This is message 1 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 2 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 3 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 4 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 5 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 6 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 7 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 8 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 9 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exea",
+          "This is message 10 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 11 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 12 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 13 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 14 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 15 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 16 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 17 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 18 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 19 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 20 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 21 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 22 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 23 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 24 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 25 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 26 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 27 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 28 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 29 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 30 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 31 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 32 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 33 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 34 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 35 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 36 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 37 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 38 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 39 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa",
+          "This is message 40 with 256 characters padding: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip exa"
+        ]
+      },
+      "expected-result": "400"
+    },
+    {
+      "id": "tech-009",
+      "goal": "Valid request - should pass technical validation",
+      "message": {
+        "id": "999",
+        "title": "Valid title under 100 chars",
+        "body": ["This is a valid message", "This is a reply"]
+      },
+      "expected-result": "200"
+    }
+  ]
+}

@@ -1,0 +1,215 @@
+{
+  "description": "Business validation test cases for Content Moderator policy compliance",
+  "test-cases": [
+    {
+      "id": "biz-positive-001",
+      "goal": "Compliant: General hobby discussion about painting",
+      "message": {
+        "id": "1001",
+        "title": "My first Space Marine painting",
+        "body": ["I just finished painting my first Space Marine miniature", "Used Citadel paints and really enjoyed the process", "Any tips for improving my edge highlighting technique?"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-002",
+      "goal": "Compliant: Asking for painting advice",
+      "message": {
+        "id": "1002",
+        "title": "Best primer for metal miniatures?",
+        "body": ["What primer do you all recommend for metal minis?", "I've been having issues with paint adhesion on my latest pewter models"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-003",
+      "goal": "Compliant: Sharing completed project",
+      "message": {
+        "id": "1003",
+        "title": "Finished my Elven archer unit",
+        "body": ["Finally completed my unit of 10 Elven archers", "Took about 3 weeks working on them in the evenings", "Really happy with how the green cloaks turned out"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-004",
+      "goal": "Compliant: Game rules discussion",
+      "message": {
+        "id": "1004",
+        "title": "Question about movement rules",
+        "body": ["Can someone clarify the movement rules for cavalry units?", "The rulebook seems unclear about wheeling around obstacles"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-005",
+      "goal": "Compliant: Product recommendation upon request",
+      "message": {
+        "id": "1005",
+        "title": "Re: Which brushes should I buy?",
+        "body": ["You asked about brushes - I personally use Winsor & Newton Series 7", "They're great for detail work and hold their points well", "Definitely worth the investment if you paint regularly"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-006",
+      "goal": "Compliant: Constructive feedback on miniature",
+      "message": {
+        "id": "1006",
+        "title": "Re: Feedback on my Orc warboss",
+        "body": ["Great work on the skin tones!", "One suggestion would be to add more contrast to the armor", "Maybe try a darker wash in the recesses to make the details pop"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-007",
+      "goal": "Compliant: Discussing hobby supplies",
+      "message": {
+        "id": "1007",
+        "title": "Wet palette recommendations",
+        "body": ["Has anyone tried the Masterson Sta-Wet palette?", "Thinking of upgrading from my homemade version"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-008",
+      "goal": "Compliant: Organizing hobby meetup",
+      "message": {
+        "id": "1008",
+        "title": "Local painting session this Saturday",
+        "body": ["We're having a casual painting meetup at the community center", "Bring your current projects and we can paint together", "No pressure, just a friendly gathering"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-009",
+      "goal": "Compliant: Sharing technique tutorial",
+      "message": {
+        "id": "1009",
+        "title": "How I do non-metallic metal",
+        "body": ["Here's my approach to NMM gold effects", "Start with a brown basecoat, then build up highlights with yellows", "The key is smooth transitions between light and shadow"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-positive-010",
+      "goal": "Compliant: Discussing sculpting tools",
+      "message": {
+        "id": "1010",
+        "title": "Green stuff vs Milliput for gap filling",
+        "body": ["Which do you prefer for filling gaps on models?", "I find green stuff easier to work with but Milliput sands better"]
+      },
+      "expected-result": "positive"
+    },
+    {
+      "id": "biz-negative-001",
+      "goal": "Non-compliant: Direct harassment and insults",
+      "message": {
+        "id": "2001",
+        "title": "Re: Your terrible paint job",
+        "body": ["Your painting is absolute garbage", "You're a complete idiot if you think that looks good", "Just quit this hobby, nobody wants to see your trash"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "HARASSMENT"
+    },
+    {
+      "id": "biz-negative-002",
+      "goal": "Non-compliant: Commercial spam with sales pitch",
+      "message": {
+        "id": "2002",
+        "title": "AMAZING DEAL - Buy miniatures now!",
+        "body": ["Check out my online store at www.cheapminis4sale.com", "Use code SPAM20 for 20% off your first order", "Limited time offer - buy now before prices go up!", "Click here to see our full catalog!!!"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "SPAM"
+    },
+    {
+      "id": "biz-negative-003",
+      "goal": "Non-compliant: Unsolicited self-promotion",
+      "message": {
+        "id": "2003",
+        "title": "Check out my commission painting service",
+        "body": ["Hey everyone, I do commission painting", "My rates are super competitive, only $5 per model", "Contact me at myemail@example.com for a quote", "I can paint any army you want!"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "SELF_PROMOTING"
+    },
+    {
+      "id": "biz-negative-004",
+      "goal": "Non-compliant: Doxxing with personal information",
+      "message": {
+        "id": "2004",
+        "title": "Re: That scammer guy",
+        "body": ["His real name is John Smith and he lives at 123 Main Street", "His phone number is 555-1234", "Everyone should call him and complain", "I also found his Facebook profile and workplace"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "DOXXING"
+    },
+    {
+      "id": "biz-negative-005",
+      "goal": "Non-compliant: IP infringement accusations as harassment",
+      "message": {
+        "id": "2005",
+        "title": "This guy is a thief!",
+        "body": ["User123 totally copied my custom sculpt design", "He's a plagiarist and everyone should boycott his work", "I'm going to make sure everyone knows he's a fraud", "Spread the word - don't support thieves!"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "IP_DISPUTES"
+    },
+    {
+      "id": "biz-negative-006",
+      "goal": "Non-compliant: Off-topic political debate",
+      "message": {
+        "id": "2006",
+        "title": "The current government is destroying our country",
+        "body": ["I can't believe what's happening politically these days", "The left/right wing is completely wrong about everything", "We need to organize and vote them all out", "This has nothing to do with miniatures but everyone needs to know"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "OFF_TOPIC"
+    },
+    {
+      "id": "biz-negative-007",
+      "goal": "Non-compliant: Persistent harassment after being asked to stop",
+      "message": {
+        "id": "2007",
+        "title": "Re: Please stop messaging me",
+        "body": ["I don't care if you asked me to stop", "I'm going to keep telling you how terrible your work is", "You can't escape my criticism", "I'll follow every post you make"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "HARASSMENT"
+    },
+    {
+      "id": "biz-negative-008",
+      "goal": "Non-compliant: Affiliate link spam",
+      "message": {
+        "id": "2008",
+        "title": "Great deals on hobby supplies",
+        "body": ["Use my affiliate link to get discounts: http://affiliate.link/12345", "I get a commission but it's a great deal for you too", "Click now and save money on all your hobby purchases"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "SPAM"
+    },
+    {
+      "id": "biz-negative-009",
+      "goal": "Non-compliant: Repeated unsolicited portfolio spam",
+      "message": {
+        "id": "2009",
+        "title": "My latest work - check out my portfolio",
+        "body": ["Here's my portfolio again in case you missed it last time", "Visit myportfolio.com to see all my amazing work", "I've already posted this 5 times but everyone should see it", "Please hire me for commissions"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "SELF_PROMOTING"
+    },
+    {
+      "id": "biz-negative-010",
+      "goal": "Non-compliant: Off-topic religious debate",
+      "message": {
+        "id": "2010",
+        "title": "Let's discuss religious beliefs",
+        "body": ["I know this is a miniature forum but we need to talk about faith", "My religion is the only true path and everyone else is wrong", "You should all convert and see the light", "This is more important than painting toy soldiers"]
+      },
+      "expected-result": "negative",
+      "expected-reason": "OFF_TOPIC"
+    }
+  ]
+}
