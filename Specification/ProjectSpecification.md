@@ -90,37 +90,91 @@ A solution is needed that will handle  messages complience, flag non-complient f
 ## 5. Proposed Solution (To-Be)
 
 ### 5.1 High-Level Description
-Summary of the proposed approach and key ideas.
+New component Content Moderator will be added to the existing infrastructure 
+Content Moderator will include sub-components: 
+- Content Moderator Backend that exposes REST endpoint to verify messages complience 
+- Content Moderator Frontend that will allow users to manually verify messages that are marked as non complient 
+- Complience of the messages will be verified by an LLM 
+- Solution will have a database to handle non-complient messages 
+
 
 ### 5.2 Architecture Overview
-- Main components
-- Data flows
-- Key integrations
-- Technology stack (if decided)
+Components of the solution: 
+- Content Moderator Backend 
+- Content Moderator Froentend 
 
-_(Optional: link to To‑Be architecture diagram)_
+### Content Moderator Backend 
+Accepts REST requests and responses with information if a message is complient with policies 
+
+Endpoint name: validateMessage
+Type: REST 
+Request: JSON
+Example request: 
+{
+ "id": "1", 
+ "title": "a new message", 
+ "body: [
+   "initial message", 
+   "reply 1", 
+   "reply 2"
+ ]
+}
+Response: JSON
+Example response - positive verification: 
+{
+ "verification": "positive"
+}
+Example response - negative verification: 
+{
+ "verification": "negative", 
+ "reason": "OFF_TOPIC" 
+}
+
+Endpoint validateMessage flow: 
+- prepare a prompt using a predefined template based on: 
+-- received message title 
+-- received message body 
+-- current user policy 
+-- existing examples of user negatively validated messages from the Content Moderator database 
+- send a prompt to LLM 
+- LLM returns a JSON that includes: a message complience score, status, reasoning
+- if a message is complient, endpoint returns positive verification to requestor 
+- if a message is not complient, endpoint: 
+-- returns positive verification to requestor
+-- add a record to Content Moderator database for further processing  
+
+- Technology stack (if decided)
+Programming language: Python 
+Justification: popular language that supports all required features 
+
+Database: in memory database
+Justification: simple database for demonstration purposes 
+
+Interfaces: REST 
+Justification: startad way inter-system communication 
 
 ### 5.3 Key Design Decisions
-- Decision 1 – rationale
-- Decision 2 – trade-offs considered
+
 
 ### 5.4 Functional Requirements
-- FR-1: …
-- FR-2: …
+- FR-1: User message verification 
+As a user I want to validate a message while posting so that my messages are complient with the portal policy 
+
+Acceptance criteria: 
+AC1: postive scenario 
+GIVEN that a message is complient with the policies THAN endpoint is called THEN positive response is sent 
+AC2: negative scenario 
+GIVEN that a message is not complient with the policies THAN endpoint is called THEN negative response is sent AND the message is stored in the database
+
 
 ### 5.5 Non-Functional Requirements
-- Performance
-- Scalability
-- Security
-- Availability
-- Maintainability
+
 
 ---
 
 
 ## 8. Open Questions & Decisions Needed
-- Question 1
-- Question 2
+- 
 
 ---
 
