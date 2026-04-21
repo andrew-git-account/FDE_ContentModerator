@@ -106,55 +106,166 @@ Components of the solution:
 ### Content Moderator Backend 
 Accepts REST requests and responses with information if a message is complient with policies 
 
-Endpoint name: validateMessage
-Type: REST 
+Endpoint name: /api/validateMessage
+Host: localhost 
+Port: 8000
+Type: REST
+Method: POST 
 Request: JSON
 Example request: 
 {
  "id": "1", 
  "title": "a new message", 
- "body: [
+ "body": [
    "initial message", 
    "reply 1", 
    "reply 2"
  ]
 }
+all fields are required 
+body represents the sequence in messages in chronological order from the first one to the following chain of replies 
+id - numeric identifier of the message 
+title - string max 100 characters long 
+body - array of strings max 256 caracters long. should contain at least one entry 
+
+if a request JSON is invalid or at least one of the fields is missing or is of incorrect value, respond HTTP 400 Bad request will be sent back 
+
 Response: JSON
 Example response - positive verification: 
 {
- "verification": "positive"
+ "verification": "positive", 
+ "reason": "OK" 
 }
 Example response - negative verification: 
 {
  "verification": "negative", 
  "reason": "OFF_TOPIC" 
 }
+verification - enum with possible values "positive" or "negative" 
+reason - enum with information why verification is negative or value "OK" for positive verification  
+possible values for reason enum: 
+- HARASSMENT
+- SPAM
+- SELF_PROMOTING
+- DOXXING
+- IP_DISPUTES
+- OFF_TOPIC
+
+Empty JSON "{}" response in case of errors Bad request or Internal server error 
 
 Endpoint validateMessage flow: 
 - prepare a prompt using a predefined template based on: 
 -- received message title 
 -- received message body 
--- current user policy 
--- existing examples of user negatively validated messages from the Content Moderator database 
+-- current user policy from the external file 
+-- existing examples of user negatively validated messages from the Content Moderator database (10 top messages confirmed by a user as negative based on modification date, send examples if they are returned by the query, send no examples if query returns empty set). Condition in SQL query: WHERE user_decision='USER_VERIFIED_NEGATIVE' AND mdate IS NOT NULL ORDER BY mdate DESC LIMIT 10
 - send a prompt to LLM 
-- LLM returns a JSON that includes: a message complience score, status, reasoning
+- LLM returns a JSON that includes: validation, reason, reasoning
 - if a message is complient, endpoint returns positive verification to requestor 
 - if a message is not complient, endpoint: 
--- returns positive verification to requestor
+-- returns negative verification to requestor
 -- add a record to Content Moderator database for further processing  
+- if LLM returns a failure then 500 Internal server error should be returned
+- if the database returns an error then 500 Internal server error should be returned
 
-- Technology stack (if decided)
+Initial prompt: 
+As a member of moderation team verify the message for complience with the policy, especially under the following criterias: harassment, off-topic content, commercial spam, self-promotion limits, doxxing, and IP disputes over custom sculpts
+<MESSAGE>
+{
+ "title": "a new message", 
+ "body": [
+   "initial message", 
+   "reply 1", 
+   "reply 2"
+ ]
+}
+</MESSAGE>
+<POLICY>
+  content of the Specification/policies.md 
+</POLICY>
+example messages with negative validation
+<EXAMPLE>
+Message 1: 
+{
+ "title": "a new message", 
+ "body": [
+   "initial message", 
+   "reply 1", 
+   "reply 2"
+ ]
+}
+Response: 
+{
+ "validation": "negative", 
+ "reason": "HARASSMENT", 
+ "reasoning": "user is harassing others" 
+}
+</EXAMPLE>
+Result provide in JSON format: 
+{
+ "validation": "negative", 
+ "reason": "HARASSMENT", 
+ "reasoning": "user is harassing others" 
+}
+where reason is one of (the same as in the endpoint response): 
+- HARASSMENT
+- SPAM
+- SELF_PROMOTING
+- DOXXING
+- IP_DISPUTES
+- OFF_TOPIC
+
+Example LLM JSON response
+{
+ "validation": "negative", 
+ "reason": "HARASSMENT", 
+ "reasoning": "user is harassing others" 
+}
+where: 
+- validation is enum - positive or negative 
+- reason: enum with possible statues of validation or OK if validation is positive
+- reasoning: description while this reason is chosen 
+
+
+### Content Moderator Database 
+database structure
+Table Messages:
+- id: integer - primary key  
+- external_id: integer not null - external id of a Message
+- title: char[100] not null - message title 
+- body: char[255] not null - message body - serialized to JSON list of messages 
+- reason: char[20] not null - message validation status 
+- reasoning: char[1024] not null - reasoning of the LLM 
+- user_decision: char[20] default null - decision of a user - one of USER_VERIFIED_POSITIVE, USER_VERIFIED_NEGATIVE
+- cdate: datetime not null default sysdate - timestamp of the entry creation. Set up with a current data/time when a record is created 
+- mdate: datetime - timestamp of user's decision - when the record is modified. Set up with a current data/time when a record is modified  
+
+
+### Technology stack 
 Programming language: Python 
-Justification: popular language that supports all required features 
-
-Database: in memory database
-Justification: simple database for demonstration purposes 
-
+Database: in memory database: Python dict
 Interfaces: REST 
-Justification: startad way inter-system communication 
+LLM provider: API endpoint  
+LLM model: Claude Sonnet 
+LLM authentification: API keys
+LLM configuration: 
+- Timeout: 30 seconds 
+- no retries on errors 
+- number of tokens: 5000 
 
 ### 5.3 Key Design Decisions
+- API keys, passwords and configuration parameters are stored in .env file and not explicitly used in the code 
+Example of .env file:
+ANTHROPIC_API_KEY=sk-...
+ LLM_TIMEOUT=30
+ LLM_MAX_TOKENS=5000
 
+- no data persistence for this version of implementation
+- in memory database approach: Single dict with ID keys {1: {record}, 2: {record}} 
+
+- industry standard 200/400/500 status codes will be used for REST endpoints responses 
+
+- policies.md file should be loaded from Specification/policies.md during application start 
 
 ### 5.4 Functional Requirements
 - FR-1: User message verification 
