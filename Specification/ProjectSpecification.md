@@ -130,116 +130,432 @@ body - array of strings max 256 caracters long. should contain at least one entr
 
 if a request JSON is invalid or at least one of the fields is missing or is of incorrect value, respond HTTP 400 Bad request will be sent back 
 
-Response: JSON
-Example response - positive verification: 
+**Success Response (HTTP 200):**
+
+```json
 {
- "verification": "positive", 
- "reason": "OK" 
+  "verification": "positive" | "negative",
+  "reason": string,
+  "confidence": boolean
 }
-Example response - negative verification: 
+```
+
+**Field Definitions:**
+
+- **verification** (string, required): enum with possible values
+  - `"positive"` - Message complies with policies
+  - `"negative"` - Message violates policies or requires manual review
+
+- **reason** (string, required): Classification reason
+  - For positive verification: `"OK"`
+  - For negative verification: One of the violation types
+    - `"HARASSMENT"`
+    - `"SPAM"`
+    - `"SELF_PROMOTING"`
+    - `"DOXXING"`
+    - `"IP_DISPUTES"`
+    - `"OFF_TOPIC"`
+
+- **confidence** (boolean, required): Indicates LLM confidence level
+  - `true` - LLM confidence >= CONFIDENCE_THRESHOLD (high confidence)
+  - `false` - LLM confidence < CONFIDENCE_THRESHOLD (low confidence, requires manual review)
+
+**Error Response:**
+```json
+{}
+```
+Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
+
+## REVISED: Response Examples
+
+### Example 1: High Confidence - Compliant Message
+```json
 {
- "verification": "negative", 
- "reason": "OFF_TOPIC" 
+  "verification": "positive",
+  "reason": "OK",
+  "confidence": true
 }
-verification - enum with possible values "positive" or "negative" 
-reason - enum with information why verification is negative or value "OK" for positive verification  
-possible values for reason enum: 
-- HARASSMENT
-- SPAM
-- SELF_PROMOTING
-- DOXXING
-- IP_DISPUTES
-- OFF_TOPIC
+```
+**Interpretation:** Message is compliant and LLM is confident (confidence >= 0.90). No manual review needed.
 
-Empty JSON "{}" response in case of errors Bad request or Internal server error 
+---
 
-Endpoint validateMessage flow: 
-- prepare a prompt using a predefined template based on: 
--- received message title 
--- received message body 
--- current user policy from the external file 
--- existing examples of user negatively validated messages from the Content Moderator database (10 top messages confirmed by a user as negative based on modification date, send examples if they are returned by the query, send no examples if query returns empty set). Condition in SQL query: WHERE user_decision='USER_VERIFIED_NEGATIVE' AND mdate IS NOT NULL ORDER BY mdate DESC LIMIT 10
-- send a prompt to LLM 
-- LLM returns a JSON that includes: validation, reason, reasoning
-- if a message is complient, endpoint returns positive verification to requestor 
-- if a message is not complient, endpoint: 
--- returns negative verification to requestor
--- add a record to Content Moderator database for further processing  
-- if LLM returns a failure then 500 Internal server error should be returned
-- if the database returns an error then 500 Internal server error should be returned
+### Example 2: Low Confidence - Possibly Compliant Message
+```json
+{
+  "verification": "positive",
+  "reason": "OK",
+  "confidence": false
+}
+```
+**Interpretation:** Message appears compliant but LLM has low confidence (confidence < 0.90). Saved to database for manual review to confirm.
 
-Initial prompt: 
-As a member of moderation team verify the message for complience with the policy, especially under the following criterias: harassment, off-topic content, commercial spam, self-promotion limits, doxxing, and IP disputes over custom sculpts
+---
+
+### Example 3: High Confidence - Clear Policy Violation
+```json
+{
+  "verification": "negative",
+  "reason": "HARASSMENT",
+  "confidence": true
+}
+```
+**Interpretation:** Message clearly violates policy (harassment) and LLM is confident (confidence >= 0.90). Saved to database for moderation action.
+
+---
+
+### Example 4: Low Confidence - Uncertain Violation
+```json
+{
+  "verification": "negative",
+  "reason": "OFF_TOPIC",
+  "confidence": false
+}
+```
+**Interpretation:** Message may violate policy (off-topic) but LLM has low confidence (confidence < 0.90). Saved to database for manual review to confirm.
+
+---
+
+
+## REVISED: Endpoint validateMessage Flow
+
+1. **Validate Request**
+   - Check all required fields present (id, title, body)
+   - Validate field types and constraints
+   - Return HTTP 400 if validation fails
+
+2. **Prepare LLM Prompt**
+   - Load policy content from `Specification/policies.md`
+   - Query database for examples of validated violations:
+     ```sql
+     WHERE user_decision='USER_VERIFIED_NEGATIVE' 
+     AND mdate IS NOT NULL 
+     ORDER BY mdate DESC 
+     LIMIT 10
+     ```
+   - Build prompt using template (see below)
+
+3. **Call LLM**
+   - Send prompt to Claude Sonnet API
+   - Receive JSON response with: `validation`, `reason`, `reasoning`, `confidence`
+   - If LLM call fails → Return HTTP 500
+
+4. **Process LLM Response**
+   
+   Parse LLM response fields:
+   - `validation`: "positive" or "negative" (string)
+   - `reason`: Violation type or "OK" (string)
+   - `reasoning`: Explanation text (string)
+   - `confidence`: Confidence score 0.0-1.0 (float)
+
+   Load threshold from configuration:
+   - `CONFIDENCE_THRESHOLD`: Float value (e.g., 0.90)
+
+   Determine high/low confidence:
+   ```python
+   is_high_confidence = (llm_confidence >= CONFIDENCE_THRESHOLD)
+   ```
+
+5. **Decision Logic**
+
+   **Case A: Positive validation + High confidence**
+   - LLM says: compliant, confidence >= threshold
+   - Action: Return positive response, DO NOT save to database
+   - Response:
+     ```json
+     {
+       "verification": "positive",
+       "reason": "OK",
+       "confidence": true
+     }
+     ```
+
+   **Case B: Positive validation + Low confidence**
+   - LLM says: compliant, confidence < threshold
+   - Action: Return positive response, SAVE to database for manual review
+   - Response:
+     ```json
+     {
+       "verification": "positive",
+       "reason": "OK",
+       "confidence": false
+     }
+     ```
+   - Database record: Save with validation="positive", confidence score, reasoning
+
+   **Case C: Negative validation + High confidence**
+   - LLM says: non-compliant, confidence >= threshold
+   - Action: Return negative response, SAVE to database for moderation
+   - Response:
+     ```json
+     {
+       "verification": "negative",
+       "reason": "<VIOLATION_TYPE>",
+       "confidence": true
+     }
+     ```
+   - Database record: Save with validation="negative", confidence score, reasoning
+
+   **Case D: Negative validation + Low confidence**
+   - LLM says: non-compliant, confidence < threshold
+   - Action: Return negative response, SAVE to database for manual review
+   - Response:
+     ```json
+     {
+       "verification": "negative",
+       "reason": "<VIOLATION_TYPE>",
+       "confidence": false
+     }
+     ```
+   - Database record: Save with validation="negative", confidence score, reasoning
+
+6. **Database Operations**
+
+   Save to database if ANY of these conditions:
+   - `validation == "negative"` (regardless of confidence), OR
+   - `confidence < CONFIDENCE_THRESHOLD` (regardless of validation)
+
+   Database record includes:
+   ```python
+   {
+     "external_id": request.id,
+     "title": request.title,
+     "body": json.dumps(request.body),
+     "reason": llm_response.reason,
+     "reasoning": llm_response.reasoning,
+     "confidence": llm_response.confidence,  # Store original float value
+     "user_decision": None,
+     "cdate": datetime.now(),
+     "mdate": None
+   }
+   ```
+
+   If database write fails → Return HTTP 500
+
+7. **Return Response**
+   - HTTP 200 with JSON response
+   - `verification`: LLM's validation value
+   - `reason`: LLM's reason value
+   - `confidence`: Boolean (true if >= threshold, false otherwise)
+
+---
+
+## REVISED: Implementation Decision Tree
+
+```
+┌─────────────────────────────────────────────────────┐
+│          Receive Validation Request                 │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────┐
+│     Validate Request Format (400 if invalid)        │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────┐
+│   Build Prompt + Call LLM (500 if failure)          │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────┐
+│        Parse LLM Response JSON                      │
+│   validation, reason, reasoning, confidence         │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+         ┌───────────────┐
+         │ validation =? │
+         └───────┬───────┘
+                 │
+      ┌──────────┴──────────┐
+      │                     │
+   "positive"          "negative"
+      │                     │
+      ▼                     ▼
+┌──────────────┐      ┌──────────────┐
+│ confidence   │      │ confidence   │
+│     ≥        │      │     ≥        │
+│ threshold?   │      │ threshold?   │
+└──┬────────┬──┘      └──┬────────┬──┘
+   │        │            │        │
+  YES       NO          YES       NO
+   │        │            │        │
+   ▼        ▼            ▼        ▼
+┌─────┐  ┌─────┐      ┌─────┐  ┌─────┐
+│Case │  │Case │      │Case │  │Case │
+│  A  │  │  B  │      │  C  │  │  D  │
+└──┬──┘  └──┬──┘      └──┬──┘  └──┬──┘
+   │        │            │        │
+   │        │            │        │
+   ▼        ▼            ▼        ▼
+Return   Return       Return   Return
+positive positive     negative negative
+conf=T   conf=F       conf=T   conf=F
+NO DB    SAVE DB      SAVE DB  SAVE DB
+```
+
+**Legend:**
+- Case A: Clear compliance → Allow, no review
+- Case B: Uncertain compliance → Allow, flag for review
+- Case C: Clear violation → Block, send to moderation
+- Case D: Uncertain violation → Block, send to review
+
+---
+
+## LLM Prompt Template
+```
+As a member of the moderation team, verify the following message for compliance with community policies.
+
+Focus on these violation categories:
+- Harassment: bullying, insults, threats, unwanted contact
+- Off-topic content: political/religious debates unrelated to hobby
+- Commercial spam: unsolicited advertising, affiliate links
+- Self-promotion limits: cold-messaging for commissions, portfolio spam
+- Doxxing: sharing personal information without consent
+- IP disputes: IP infringement accusations as harassment
+
 <MESSAGE>
 {
- "title": "a new message", 
- "body": [
-   "initial message", 
-   "reply 1", 
-   "reply 2"
- ]
+  "title": "{{message_title}}",
+  "body": {{message_body_json_array}}
 }
 </MESSAGE>
-<POLICY>
-  content of the Specification/policies.md 
-</POLICY>
-example messages with negative validation
-<EXAMPLE>
-Message 1: 
-{
- "title": "a new message", 
- "body": [
-   "initial message", 
-   "reply 1", 
-   "reply 2"
- ]
-}
-Response: 
-{
- "validation": "negative", 
- "reason": "HARASSMENT", 
- "reasoning": "user is harassing others" 
-}
-</EXAMPLE>
-Result provide in JSON format: 
-{
- "validation": "negative", 
- "reason": "HARASSMENT", 
- "reasoning": "user is harassing others" 
-}
-where reason is one of (the same as in the endpoint response): 
-- HARASSMENT
-- SPAM
-- SELF_PROMOTING
-- DOXXING
-- IP_DISPUTES
-- OFF_TOPIC
 
-Example LLM JSON response
+<POLICY>
+{{content_of_policies_md_file}}
+</POLICY>
+
+{{if examples exist}}
+Examples of previously confirmed policy violations:
+
+<EXAMPLES>
+{{for each example}}
+Example {{N}}:
+Message:
 {
- "validation": "negative", 
- "reason": "HARASSMENT", 
- "reasoning": "user is harassing others" 
+  "title": "{{example_title}}",
+  "body": {{example_body_json_array}}
 }
+Violation:
+{
+  "validation": "negative",
+  "reason": "{{example_reason}}",
+  "reasoning": "{{example_reasoning}}"
+}
+
+{{end for}}
+</EXAMPLES>
+{{end if}}
+
+Provide your response in JSON format with the following structure:
+{
+  "validation": "positive" or "negative",
+  "reason": "OK" | "HARASSMENT" | "SPAM" | "SELF_PROMOTING" | "DOXXING" | "IP_DISPUTES" | "OFF_TOPIC",
+  "reasoning": "Detailed explanation of your decision (1-2 sentences)",
+  "confidence": <float 0.0 to 1.0>
+}
+
+Confidence scoring guidelines:
+- 1.0: Absolutely certain of the classification (clear violation or obviously compliant)
+- 0.9: Very confident (strong evidence for classification)
+- 0.7: Somewhat confident (leans one way but not definitive)
+- 0.5: Uncertain (borderline case, could go either way)
+- 0.3 or lower: Cannot determine with reasonable certainty
+
+Important:
+- If validation is "positive", set reason to "OK"
+- If validation is "negative", set reason to the specific violation type
+- Be conservative: if unsure whether content violates policy, use lower confidence
+```
+
+---
+
+## Example LLM Responses
+
+Simple LLM JSON response
+```json
+{
+  "validation": "negative", 
+  "reason": "HARASSMENT", 
+  "reasoning": "user is harassing others", 
+  "confidence": 0.50 
+}
+```
 where: 
 - validation is enum - positive or negative 
 - reason: enum with possible statues of validation or OK if validation is positive
-- reasoning: description while this reason is chosen 
+- reasoning: description while this reason is chosen, 
+- confidence: the level of LLM confidence in provided response 
+
+### Example 1: Clear Compliance
+```json
+{
+  "validation": "positive",
+  "reason": "OK",
+  "reasoning": "Message is a constructive hobby discussion about painting techniques with no policy violations.",
+  "confidence": 0.95
+}
+```
+
+### Example 2: Uncertain Compliance
+```json
+{
+  "validation": "positive",
+  "reason": "OK",
+  "reasoning": "Message appears compliant but contains ambiguous language that could be interpreted as subtle self-promotion.",
+  "confidence": 0.65
+}
+```
+
+### Example 3: Clear Violation
+```json
+{
+  "validation": "negative",
+  "reason": "HARASSMENT",
+  "reasoning": "Message contains direct personal insults and bullying language directed at another user.",
+  "confidence": 0.98
+}
+```
+
+### Example 4: Uncertain Violation
+```json
+{
+  "validation": "negative",
+  "reason": "OFF_TOPIC",
+  "reasoning": "Message discusses political topics but tangentially relates to hobby community. Borderline off-topic.",
+  "confidence": 0.55
+}
+```
+
+---
 
 
 ### Content Moderator Database 
-database structure
-Table Messages:
-- id: integer - primary key  
-- external_id: integer not null - external id of a Message
-- title: char[100] not null - message title 
-- body: char[1000] not null - message body - serialized to JSON list of messages 
-- reason: char[20] not null - message validation status 
-- reasoning: char[1024] not null - reasoning of the LLM 
-- user_decision: char[20] default null - decision of a user - one of USER_VERIFIED_POSITIVE, USER_VERIFIED_NEGATIVE
-- cdate: datetime not null default sysdate - timestamp of the entry creation. Set up with a current data/time when a record is created 
-- mdate: datetime - timestamp of user's decision - when the record is modified. Set up with a current data/time when a record is modified  
 
+## Database Schema
+
+### Table: Messages
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | integer | PRIMARY KEY | Auto-increment record ID |
+| external_id | integer | NOT NULL | External message ID from Message Board |
+| title | char[100] | NOT NULL | Message title |
+| body | char[1000] | NOT NULL | Message body (JSON serialized array) |
+| reason | char[20] | NOT NULL | Validation reason (OK, HARASSMENT, etc.) |
+| reasoning | char[1024] | NOT NULL | LLM's explanation |
+| confidence | float | NOT NULL | LLM confidence score (0.0-1.0) |
+| user_decision | char[20] | NULL | Manual review decision (USER_VERIFIED_POSITIVE, USER_VERIFIED_NEGATIVE) |
+| cdate | datetime | NOT NULL, DEFAULT NOW | Record creation timestamp |
+| mdate | datetime | NULL | Last modification timestamp (set when user_decision changes) |
+
+**Storage Logic:**
+- Store records when: validation="negative" OR confidence < threshold
+- `confidence` field stores the original float value from LLM (e.g., 0.65)
+- This allows frontend to display actual confidence levels to moderators
+
+---
 
 ### Technology stack 
 Programming language: Python 
@@ -255,10 +571,6 @@ LLM configuration:
 
 ### 5.3 Key Design Decisions
 - API keys, passwords and configuration parameters are stored in .env file and not explicitly used in the code 
-Example of .env file:
-ANTHROPIC_API_KEY=sk-...
- LLM_TIMEOUT=30
- LLM_MAX_TOKENS=5000
 
 - no data persistence for this version of implementation
 - in memory database approach: Single dict with ID keys {1: {record}, 2: {record}} 
@@ -267,15 +579,72 @@ ANTHROPIC_API_KEY=sk-...
 
 - policies.md file should be loaded from Specification/policies.md during application start 
 
-### 5.4 Functional Requirements
-- FR-1: User message verification 
-As a user I want to validate a message while posting so that my messages are complient with the portal policy 
+## Configuration (.env)
 
-Acceptance criteria: 
-AC1: postive scenario 
-GIVEN that a message is complient with the policies THAN endpoint is called THEN positive response is sent 
-AC2: negative scenario 
-GIVEN that a message is not complient with the policies THAN endpoint is called THEN negative response is sent AND the message is stored in the database
+```ini
+# Anthropic API Configuration
+ANTHROPIC_API_KEY=sk-ant-...
+
+# LLM Settings
+LLM_TIMEOUT=30
+LLM_MAX_TOKENS=5000
+
+# Confidence Threshold (0.0 to 1.0)
+# Messages with confidence below this threshold require manual review
+CONFIDENCE_THRESHOLD=0.90
+
+# Server Configuration
+HOST=localhost
+PORT=8000
+```
+
+**Configuration Notes:**
+- `CONFIDENCE_THRESHOLD`: Float between 0.0 and 1.0
+  - Recommended: 0.85-0.95 for balanced automatic/manual review
+  - Higher values (0.95+): More conservative, more manual reviews
+  - Lower values (0.80): More aggressive automation, fewer manual reviews
+
+---
+
+
+
+### 5.4 Functional Requirements
+
+### FR-1: User message verification
+
+**As a user** I want to validate a message while posting so that my messages are compliant with portal policy
+
+**Acceptance Criteria:**
+
+**AC1: High confidence compliant message**
+- GIVEN that a message is compliant with policies
+- AND LLM confidence >= CONFIDENCE_THRESHOLD
+- WHEN the endpoint is called
+- THEN a positive response is sent with confidence=true
+- AND the message is NOT stored in the database
+
+**AC2: Low confidence compliant message**
+- GIVEN that a message appears compliant with policies
+- AND LLM confidence < CONFIDENCE_THRESHOLD
+- WHEN the endpoint is called
+- THEN a positive response is sent with confidence=false
+- AND the message IS stored in the database for manual review
+
+**AC3: High confidence policy violation**
+- GIVEN that a message violates policies
+- AND LLM confidence >= CONFIDENCE_THRESHOLD
+- WHEN the endpoint is called
+- THEN a negative response is sent with confidence=true and appropriate reason
+- AND the message IS stored in the database
+
+**AC4: Low confidence policy violation**
+- GIVEN that a message may violate policies
+- AND LLM confidence < CONFIDENCE_THRESHOLD
+- WHEN the endpoint is called
+- THEN a negative response is sent with confidence=false and appropriate reason
+- AND the message IS stored in the database for manual review
+
+---
 
 
 ### 5.5 Non-Functional Requirements
@@ -317,6 +686,66 @@ Proposed structure for verification:
  }
 
 Create a framework to run test cases and verify the result  
+
+### Additional Business Test Cases for Confidence Levels
+
+```json
+{
+  "test-cases": [
+    {
+      "id": "biz-conf-001",
+      "goal": "Low confidence positive - ambiguous self-promotion",
+      "message": {
+        "id": "3001",
+        "title": "Just sharing my latest work",
+        "body": ["Here's a mini I painted recently", "Let me know if you want tips"]
+      },
+      "expected-result": "positive",
+      "expected-confidence": "false",
+      "note": "Borderline self-promotion, should trigger manual review"
+    },
+    {
+      "id": "biz-conf-002",
+      "goal": "Low confidence negative - mild criticism",
+      "message": {
+        "id": "3002",
+        "title": "That painting could be better",
+        "body": ["Your technique needs work", "Consider practicing more"]
+      },
+      "expected-result": "negative",
+      "expected-confidence": "false",
+      "note": "Could be constructive feedback or mild harassment"
+    },
+    {
+      "id": "biz-conf-003",
+      "goal": "High confidence positive - clear hobby discussion",
+      "message": {
+        "id": "3003",
+        "title": "Tips for dry brushing",
+        "body": ["Use a flat brush with very little paint", "Build up layers slowly"]
+      },
+      "expected-result": "positive",
+      "expected-confidence": "true",
+      "note": "Clearly compliant hobby content"
+    },
+    {
+      "id": "biz-conf-004",
+      "goal": "High confidence negative - obvious spam",
+      "message": {
+        "id": "3004",
+        "title": "BUY NOW - 50% OFF ALL MINIATURES!!!",
+        "body": ["Visit www.example.com", "Limited time only", "Use code SAVE50"]
+      },
+      "expected-result": "negative",
+      "expected-confidence": "true",
+      "note": "Obviously commercial spam"
+    }
+  ]
+}
+```
+
+---
+
 
 
 ## 8. Open Questions & Decisions Needed
