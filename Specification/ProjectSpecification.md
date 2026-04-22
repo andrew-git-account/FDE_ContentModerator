@@ -113,6 +113,7 @@ Type: REST
 Method: POST 
 Request: JSON
 Example request: 
+```json
 {
  "id": "1", 
  "title": "a new message", 
@@ -122,6 +123,8 @@ Example request:
    "reply 2"
  ]
 }
+```
+
 all fields are required 
 body represents the sequence in messages in chronological order from the first one to the following chain of replies 
 id - numeric identifier of the message 
@@ -136,7 +139,9 @@ if a request JSON is invalid or at least one of the fields is missing or is of i
 {
   "verification": "positive" | "negative",
   "reason": string,
-  "confidence": boolean
+  "confidence": boolean,
+  "reasoning": string,
+  "confidence_score": float
 }
 ```
 
@@ -530,6 +535,124 @@ where:
 
 ---
 
+### Backend services to support Frontend 
+
+### Endpoint getMessagesToReview 
+GET /api/getMessagesToReview
+
+Endpoint returns messages that required human review 
+
+REST method GET 
+
+Request: no parameters 
+
+Response: 
+```json
+  {
+    "messages": [{
+      "id": 123,
+      "title": "message title",
+      "reason": "OFF_TOPIC",
+      "confidence": 0.55
+    }]
+  }
+```
+
+Query to fetch messages from the database: 
+```sql
+SELECT * FROM messages 
+WHERE user_decision IS NULL 
+  AND confidence < CONFIDENCE_THRESHOLD
+ORDER BY cdate DESC
+LIMIT 5000
+```
+
+In case of database error, service returns response 500 - Internal server error 
+
+
+### Endpoint getMessageDetails 
+Basic path GET /api/getMessageDetails
+
+Endpoint to get message details for human review - returns full information on a given message  
+
+REST method GET 
+Path with query parameter example GET /api/getMessageDetails?id={id}
+
+Query parameter: id - id of the message in the database 
+
+Response:  
+```json
+{
+  "message": {
+    "title": "message title", 
+	"body": [
+	  "Initial message", 
+	  "reply"
+	], 
+    "reason": "OFF_TOPIC",
+    "reasoning": "Message discusses political topics but tangentially relates to hobby community. Borderline off-topic.",
+    "confidence": 0.55
+  }
+}
+```
+
+Query to fetch message details from the database: 
+```sql
+SELECT * FROM messages WHERE id = {id_parameter}
+```
+
+In case of database error, service returns response 500 - Internal server error 
+
+
+### Endpoint setUserDecision  
+Endpoint updates the given message with a user decision  
+
+REST method PATCH  
+
+Endpoint PATCH /api/setUserDecision?id={id}&user_decision={decision}
+
+Query parameters: 
+ - id - id of the message in the database 
+ - user_decision - decision made by a user. Can be one from USER_VERIFIED_POSITIVE, USER_VERIFIED_NEGATIVE
+
+Response: empty JSON 
+```json
+{
+}
+```
+
+Endpoint does the following actions: 
+
+Update the message with id provided in the query parameter in the database 
+set the following fields: 
+-- set mdate to current date and time 
+-- set user_decision to USER_VERIFIED_POSITIVE or USER_VERIFIED_NEGATIVE
+
+
+-- informs the external system about user decision 
+To inform the external Message Board system, a REST service should be called: 
+REST method: PATCH 
+REST endpoint: MESSAGE_BOARD_ENDPOINT 
+
+Request body for external endpoint  
+```json
+{
+  "id": "1",
+  "reason": "User_verified_positive",
+  "reasoning": "Positive human verification",
+  "confidence": 0.7
+}
+```
+Where id is external_id from the database 
+
+
+In case of missing parameters or parameters are not matching pattern, service returns response 400 - Bad parameters
+
+In case of database error, service returns response 500 - Internal server error 
+
+In case of external endpoint error, service returns 500 - Internal server error 
+
+---
 
 ### Content Moderator Database 
 
@@ -557,8 +680,83 @@ where:
 
 ---
 
+
+### Content Moderator UI 
+
+Content Moderator UI allows user (a member of moderation team) to review and manually verify messages that did not pass AI verification 
+
+Content Moderator UI has one window divided into the following areas: 
+- List of messages to be reviewed by a human 
+- View to create messages 
+
+Users who can run application will be able to view and change messages. No additional authorization is required. 
+
+
+### List of Messages 
+List of messages view displayed all the messages that required user's attention and verification 
+The view contains: 
+- message title (field title from the database) 
+- Classification reason provided by LLM (field reason from the database)
+- Confidence given by LLM (field confidence from the database)
+
+Messages that require human verification are retrieved with the endpoint provided by Content Moderator backend: GET /api/getMessagesToReview
+
+When a message is clicked, the message expands and the following information, in addition to information that is already rendered, is displayed: 
+- message body: list of messages in array from database field body displayed in the list (database field body)
+- LLM reasoning (database field reasoning)
+- Button "Confirm" 
+- Button "Decline" 
+Message details are retrieved with the endpoint provided by Content Moderator backend: GET /api/getMessageDetails?id={id}
+Query parameter to pass to the endpoint - id of the message which user clicked 
+
+Button "Confirm" action:
+- Calls: PATCH /api/setUserDecision?id={message_id}&user_decision=USER_VERIFIED_POSITIVE
+- On success: Message is removed from the list
+
+Button "Decline" action:
+- Calls: PATCH /api/setUserDecision?id={message_id}&user_decision=USER_VERIFIED_NEGATIVE
+- On success: Message is removed from the list
+
+If an error occurs during service calls, user received information about HTTP error code: "Error occurred. Code: 500" 
+
+
+## View to Create Messages 
+Functionality is required for test purposes 
+Possibility to simulate sending a message for verification by providing: 
+- message title - text input with limit characters 100
+- message body - text input with limit characters 256 
+- button "Send" - active when both fields are provided 
+
+Pressing send button do the following: 
+- prepares a request to Content Moderator Backend 
+- confirm the user that message is sent 
+
+Request body for request: 
+```json
+{
+ "id": "1", 
+ "title": "message title", 
+ "body": [
+   "message body"
+ ]
+}
+```
+where id is constant 1 
+title - title provided by the user 
+message body - message provided by the user  
+
+When service call finishes with success (HTTP code 200), user received the following information: 
+- text "Message is sent successfully" 
+- text "LLM classification: reason", where reason is field reason from the response
+- text "LLM confidence: High" (if confidence=true) or "Low" (if confidence=false)
+- text "LLM confidence: confidence_score", where confidence_score value is field confidence_score from the response
+
+In case of an error, the user receives a message: "Message was not set. Error: 400" where error value is HTTP error code  
+
+
 ### Technology stack 
 Programming language: Python 
+UI Library: PyQT
 Database: in memory database: Python dict
 Interfaces: REST 
 LLM provider: API endpoint  
@@ -596,6 +794,10 @@ CONFIDENCE_THRESHOLD=0.90
 # Server Configuration
 HOST=localhost
 PORT=8000
+
+# Message Board Server 
+MESSAGE_BOARD_ENDPOINT=localhost:9000/api/updateMessage 
+
 ```
 
 **Configuration Notes:**
