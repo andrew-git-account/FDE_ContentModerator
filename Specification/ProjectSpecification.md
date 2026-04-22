@@ -1,18 +1,18 @@
 # Project Specification
 
-## 1. Overview
-### 1.1 Purpose
+## Overview
+### Purpose
 The goal of the project Content : 
 - automatically handle verifycation of messages posted by a user for compliance with policies 
 - allowing user to handle manually reported messages
 
-### 1.2 Goals & Success Criteria
+### Goals & Success Criteria
 - Introducing new component Content Moderator that will be integrated into existing solution (Message board) 
 - 95% of messages are correctly classified as complient/non-complient with policies by Content Moderator component 
 - user has ability to manually verify and set up complience of messages in the Content Moderator component
 - solution passes prepared tests 
 
-### 1.3 Scope
+### Scope
 **In scope**
 - Backend component to handle automatic verification of messages 
 - Frontend component to allow user view and verify messages marked for verification 
@@ -22,24 +22,41 @@ The goal of the project Content :
 
 ---
 
-## 2. Assumptions & Constraints
+## Assumptions & Constraints
 
-### 2.1 Assumptions
+### Assumptions
 - Existing component Massage Board allows users to create new messages and reply to existing messages 
 - Message Board component will use a new REST services to verify if a message is positively verified 
 - Message Board component will expose a REST service to mark a message as verified by a human positively or negatively 
-- components Message Board and Content Moderator communicate only with REST services 
+- Components Message Board and Content Moderator communicate only with REST services 
+- Assumptions of the current solution are described in the chapter Current Solution As-Is 
 
-### 2.2 Constraints
-- 
 
 ---
 
-## 3. Current Solution (As-Is)
+### Open Questions & Decisions Needed
+- Is false positive tolerance explicitly higher than false negatives in all cases—or only specific policy areas?
+- Should AI trigger any escalations? For example threats against other users or criminal activities? 
+- How often policies change? Who is responsible for accepting changes?
+- Are messages supported in messages? It should require additional mechanism to verify images content. 
+- Is there a possibility to write a private messages in the portal? If yes, should this messages also should be moderated? 
+- In the proposed solution, decision is taken based on confidence of AI. Should other criteria be taken into consideration? For example reputation harm if a non-complient message is published. 
+- Should all moderators be trusted (for example, some moderators' decision should be double checked and confirmed)? 
+- Should a portal user have ability to appeal to AI or human decision? 
+- Is definition of damage defined (in context of messages that can damage reputation)? 
 
-### 3.1 Description
-Message Board component allows user to create a message or reply to an existing message 
-A message is store in the local database 
+---
+
+
+## Current Solution (As-Is)
+
+### Description
+Community platform has functionality to create and reply to messages later referenced as Component Message Board. 
+
+
+### Architecture Overview
+Existing component Message Board allows user to create a message or reply to an existing message 
+A message is stored in local database 
 A message has the following attributes: 
 - message_id - unique identified of a message 
 - reply_to_id - identifier of an existing message. Can be null if the message is the new/not a reply 
@@ -54,7 +71,30 @@ Current message statuses:
 - user_verified_positive 
 - user_verified_negative 
 
-Message Board display messages with statuses: 
+Diagram of current message statuses 
+```uml
+@startuml
+hide empty description
+
+[*] --> New
+
+state New
+state User_reported
+state User_verified_positive
+state User_verified_negative
+
+New --> User_reported
+
+User_reported --> User_verified_positive
+User_reported --> User_verified_negative
+
+User_verified_positive --> [*]
+User_verified_negative --> [*]
+
+@enduml
+```
+
+Message Board displays messages with statuses: 
 - new
 - user_reported
 - user_verified_positive
@@ -62,16 +102,8 @@ Message Board display messages with statuses:
 A user can report a message in the status new 
 
 
-### 3.2 Architecture Overview
-- Component Message Board allows user to create a new message 
-- Component Message Board allows user to reply to an existing message 
-- No integrations with external components 
 
-
-### 3.3 Strengths
-- Simple stegihtforward architecture
-
-### 3.4 Limitations / Pain Points
+### Limitations / Pain Points
 - Message board has about 180K active users
 - Users of the Message Board generate about 12K posts per day across forums and galleries
 - Some of the posted messages are not complient with current policy 
@@ -81,15 +113,16 @@ A user can report a message in the status new
 
 ---
 
-## 4. Problem Statement
+## Problem Statement
 Growing number of users and messages generate a lot of manual work for moderation team 
 A solution is needed that will handle  messages complience, flag non-complient for human review with real context
+Important requirement is not to make a decision that damage community trust. 
 
 ---
 
-## 5. Proposed Solution (To-Be)
+## Proposed Solution (To-Be)
 
-### 5.1 High-Level Description
+### Architecture Overview
 New component Content Moderator will be added to the existing infrastructure 
 Content Moderator will include sub-components: 
 - Content Moderator Backend that exposes REST endpoint to verify messages complience 
@@ -97,11 +130,84 @@ Content Moderator will include sub-components:
 - Complience of the messages will be verified by an LLM 
 - Solution will have a database to handle non-complient messages 
 
+In order to fullful client's requirements, a new component Content Moderator will be introduced. 
+Component will expose API to handle messages classification and verification for the existing Message Board component. 
+This approach allows to introduce new functionality without significant changes in existing infrastructure.
 
-### 5.2 Architecture Overview
-Components of the solution: 
-- Content Moderator Backend 
-- Content Moderator Froentend 
+Solution architecture 
+```uml
+@startuml
+left to right direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+' --- External System ---
+package "External System" {
+  [Message Board] <<existing>>
+}
+
+' --- Content Moderator System ---
+package "Content Moderator System" {
+
+  [Content Moderator Frontend] as CM_FE
+  [Content Moderator Backend] as CM_BE
+  database "Content Moderator Database" as CM_DB
+}
+
+' --- Layout helpers (hidden links) ---
+[Message Board] -[hidden]-> CM_BE
+CM_FE -[hidden]-> CM_BE
+CM_BE -[hidden]-> CM_DB
+
+' --- Relations ---
+[Message Board] --> CM_BE : Message to moderate
+CM_BE --> [Message Board] : Human confirmation
+CM_FE --> CM_BE : moderation UI calls
+CM_BE --> CM_DB : read / write
+
+@enduml
+```
+
+- Component Message Board allows user to create a new message 
+- Component Content Moderator Backend 
+-- contains logic of handling messages 
+-- classifies messages using LLM 
+-- handles interfacing with external systems 
+-- provide data for Content Moderator Frontend 
+- Component Content Moderator Frontend 
+-- provides user interfaces to do the human validation of messages 
+-- allows user to create messages for testing purposes 
+
+
+Classification of messages compience towards is done by LMM. 
+Because reputation is very important for the client, only messages that classified with high confidence will be automatically published (if complient) or declined (if not complient).
+All messages, classified with lower confidence, have to be verified and manually classified by portal team members. 
+
+### Solution Tuning 
+Before deploying on production, the solution should be fine tuned based on existing messages to achieve required result - predefined percentage of messages are classified with high confidence. 
+There are the following tuning mechanism: 
+- improving LLM prompt, for example by including more messages that were declined by administrators
+- changing complience threshold - increase or decrease confidence level will allow assure that all messages below the given confidence threshold are verified by a human 
+- changing LLM temperature to achieve appropriate level of determinism of LLM responses.  
+ 
+
+### Solution Integration 
+To integrate the new component to the existing solution the following changes should be made in the existing Message Board component: 
+- extend statuses of messages (add new statuses to existing ones) 
+- change the logic of displaying messages (take into account new statuses) 
+- call Content Moderator API when a new message is entered by a user 
+- expose API to set up human decision if this decision is needed 
+
+### Solution Testing 
+In order to test the solution, two mechanism will be used: 
+- set of functional testing created during the implementation 
+- testing framework to verify correctness of LLM classification of messages. For more details see chapter Approach to testing. 
+Testing framework can be use for Solution tuning and Regression testing to make sure that new changes won't influence solution performance. 
+
+
+
+## Solution specification 
+
 
 ### Content Moderator Backend 
 Accepts REST requests and responses with information if a message is complient with policies 
@@ -171,7 +277,7 @@ if a request JSON is invalid or at least one of the fields is missing or is of i
 ```
 Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
 
-## REVISED: Response Examples
+## Response Examples
 
 ### Example 1: High Confidence - Compliant Message
 ```json
@@ -222,7 +328,7 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
 ---
 
 
-## REVISED: Endpoint validateMessage Flow
+## Endpoint validateMessage Flow
 
 1. **Validate Request**
    - Check all required fields present (id, title, body)
@@ -359,7 +465,7 @@ Based on testing/fine tuning results, temperature can be changed to achieve bett
 
 ---
 
-## REVISED: Implementation Decision Tree
+## Implementation Decision Tree
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -782,7 +888,7 @@ LLM configuration:
 - number of tokens: 5000 
 - temperature: configurable (default 0.3)
 
-### 5.3 Key Design Decisions
+### Key Design Decisions
 - API keys, passwords and configuration parameters are stored in .env file and not explicitly used in the code 
 
 - no data persistence for this version of implementation
@@ -833,7 +939,7 @@ MESSAGE_BOARD_ENDPOINT=localhost:9000/api/updateMessage
 
 
 
-### 5.4 Functional Requirements
+### Functional Requirements
 
 ### FR-1: User message verification
 
@@ -872,11 +978,8 @@ MESSAGE_BOARD_ENDPOINT=localhost:9000/api/updateMessage
 ---
 
 
-### 5.5 Non-Functional Requirements
 
----
-
-### 5.6 Testing approach 
+### Testing approach 
 
 ### Content Moderator Backend 
 
@@ -968,13 +1071,6 @@ Create a framework to run test cases and verify the result
   ]
 }
 ```
-
----
-
-
-
-## 8. Open Questions & Decisions Needed
-- 
 
 ---
 
