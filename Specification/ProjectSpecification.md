@@ -240,12 +240,26 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
      ```
    - Build prompt using template (see below)
 
-3. **Call LLM**
+   
+3. **LLM Tuning**
+To tune LLM processing, appropriate level of randomness/creativity of LLM responses (LLM temperature) should be set up. 
+LLM temperature is configurable and stored in .env file: LLM_TEMPERATURE  
+Possible values between 0.0 to 1.0:
+   - 0.0 = deterministic, consistent responses
+   - 0.3 = low randomness (good for classification tasks)
+   - 1.0 = high randomness, creative responses
+Recommended initial value is 0.3, since the main task of LLM in the solution is to classify messages based on portal policies. 
+Based on testing/fine tuning results, temperature can be changed to achieve better and more deterministic results in Classification.
+ 
+
+4. **Call LLM**
+   - Load configuration parameters:
+     - LLM_TEMPERATURE: Controls response randomness (0.0-1.0)
    - Send prompt to Claude Sonnet API
    - Receive JSON response with: `validation`, `reason`, `reasoning`, `confidence`
    - If LLM call fails → Return HTTP 500
 
-4. **Process LLM Response**
+5. **Process LLM Response**
    
    Parse LLM response fields:
    - `validation`: "positive" or "negative" (string)
@@ -261,7 +275,7 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
    is_high_confidence = (llm_confidence >= CONFIDENCE_THRESHOLD)
    ```
 
-5. **Decision Logic**
+6. **Decision Logic**
 
    **Case A: Positive validation + High confidence**
    - LLM says: compliant, confidence >= threshold
@@ -314,7 +328,7 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
      ```
    - Database record: Save with validation="negative", confidence score, reasoning
 
-6. **Database Operations**
+7. **Database Operations**
 
    Save to database if ANY of these conditions:
    - `validation == "negative"` (regardless of confidence), OR
@@ -337,7 +351,7 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
 
    If database write fails → Return HTTP 500
 
-7. **Return Response**
+8. **Return Response**
    - HTTP 200 with JSON response
    - `verification`: LLM's validation value
    - `reason`: LLM's reason value
@@ -766,6 +780,7 @@ LLM configuration:
 - Timeout: 30 seconds 
 - no retries on errors 
 - number of tokens: 5000 
+- temperature: configurable (default 0.3)
 
 ### 5.3 Key Design Decisions
 - API keys, passwords and configuration parameters are stored in .env file and not explicitly used in the code 
@@ -786,6 +801,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 # LLM Settings
 LLM_TIMEOUT=30
 LLM_MAX_TOKENS=5000
+LLM_TEMPERATURE=0.3
 
 # Confidence Threshold (0.0 to 1.0)
 # Messages with confidence below this threshold require manual review
@@ -805,7 +821,14 @@ MESSAGE_BOARD_ENDPOINT=localhost:9000/api/updateMessage
   - Recommended: 0.85-0.95 for balanced automatic/manual review
   - Higher values (0.95+): More conservative, more manual reviews
   - Lower values (0.80): More aggressive automation, fewer manual reviews
-
+- `LLM_TEMPERATURE`: Float between 0.0 and 1.0
+  - Controls randomness in LLM responses
+  - 0.0: Fully deterministic, same input always produces same output
+  - 0.3: Low randomness (recommended for classification tasks)
+  - 0.7: Moderate creativity
+  - 1.0: High randomness, creative but less consistent
+  - Recommended: 0.3 for content moderation (consistent, reliable classification)
+  
 ---
 
 
