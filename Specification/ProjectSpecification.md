@@ -116,9 +116,7 @@ A user can report a message in the status new
 ---
 
 ## Problem Statement
-Growing number of users and messages generate a lot of manual work for moderation team 
-A solution is needed that will handle  messages compliance, flag non-complient for human review with real context
-Important requirement is not to make a decision that damage community trust. 
+The online community platform has grown beyond the capacity of its existing moderation team, making it difficult to review all user‑generated content in a timely and consistent manner. Most content is clearly compliant or clearly violating community policies, but a small yet critical portion falls into ambiguous grey zones where incorrect decisions can rapidly undermine community trust. The platform therefore requires a moderation solution that can automatically handle obvious cases at scale, while reliably identifying uncertain or potentially high‑impact content and delegating it to human moderators to prevent trust‑damaging failures.
 
 ---
 
@@ -251,6 +249,81 @@ In order to test the solution, two mechanism will be used:
 Testing framework can be use for Solution tuning and Regression testing to make sure that new changes won't influence solution performance. 
 
 
+### Solution Success Metrics
+ 
+### Primary Metrics
+
+| Metric | Target | Measurement | Priority |
+|--------|--------|-------------|----------|
+| **Classification Accuracy Rate** | ≥95% | (Correct Classifications / Total Human-Reviewed Messages) × 100 | HIGH |
+| **False Negative Rate** | <1% | (Harmful Content Published / Total Harmful Content) × 100 | CRITICAL |
+| **False Positive Rate** | <15% | (Harmless Content Flagged / Total Harmless Content) × 100 | MEDIUM |
+| **Human-AI Agreement Rate** | ≥90% | (Human Agrees with AI / Total Human Reviews) × 100 | HIGH |
+
+#### Metric Definitions
+
+**Classification Accuracy Rate (≥95%)**
+- **What:** Percentage of LLM decisions that match human review decisions
+- **Why:** Core quality indicator - validates LLM is correctly identifying violations
+- **Calculation:** Compare LLM initial decision vs. final human decision for all reviewed messages
+- **Target:** ≥95% per project success criteria
+
+**False Negative Rate (<1%) - MOST CRITICAL**
+- **What:** Harmful content that system incorrectly allows through
+- **Why:** Directly impacts community trust - these messages can damage reputation
+- **Calculation:** Count messages initially classified as compliant but later confirmed as violations
+- **Alert Threshold:** >0.5% triggers immediate investigation
+- **Zero Tolerance Goal:** Should trend toward 0%
+
+**False Positive Rate (<15%)**
+- **What:** Harmless content incorrectly flagged as violations
+- **Why:** Measures over-moderation, but acceptable per trust-first principle
+- **Calculation:** Count messages flagged for review but confirmed as compliant
+- **Acceptable Range:** 10-15% (reflects conservative approach)
+
+**Human-AI Agreement Rate (≥90%)**
+- **What:** How often human moderators agree with AI decisions
+- **Why:** Indicates AI understands policies correctly
+- **Calculation:** Track agreement separately for positive and negative classifications
+- **Breakdown:** Measure per violation category
+
+
+### Community Trust Protection
+
+| Metric | Target | Alert Threshold | Priority |
+|--------|--------|-----------------|----------|
+| **Harmful Messages Published** | 0 per week | >1 per week | CRITICAL |
+| **Trust-Damaging Incidents** | 0 per month | >0 per month | CRITICAL |
+| **User Reports on Auto-Allowed Content** | <5 per week | >10 per week | HIGH |
+
+#### Metric Definitions
+
+**Harmful Messages Published**
+- **What:** Messages that auto-allowed (delegation=false, verification=positive) but were actually violations
+- **Measurement:** Track user reports and moderator flags on auto-allowed messages
+- **Impact:** Each instance represents a potential trust breach
+- **Response:** Any occurrence triggers threshold review and prompt adjustment
+
+**Trust-Damaging Incidents**
+- **What:** Harmful content that went viral, caused user complaints, or required public response
+- **Severity Weights:**
+  - CRITICAL: Doxxing, direct threats (multiplier: 10x)
+  - HIGH: Harassment, hate speech (multiplier: 5x)
+  - MEDIUM: Spam, self-promotion (multiplier: 1x)
+- **Target:** Zero per month
+- **Response:** Incident triggers immediate policy and threshold review
+
+
+### The Content Moderator project is successful if:
+
+**1. False Negatives <1%** (harmful content rarely gets through)  
+**2. Automation Rate 70-80%** (efficiency achieved without sacrificing safety)  
+**3. Zero Trust-Damaging Incidents** (community trust protected)  
+**4. Classification Accuracy ≥95%** (quality maintained)  
+**5. Workload Reduction ≥50%** (team productivity improved)  
+
+---
+
 
 ## Solution specification 
 
@@ -324,7 +397,7 @@ if a request JSON is invalid or at least one of the fields is missing or is of i
 ```
 Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
 
-## Response Examples
+### Response Examples
 
 ### Example 1: High Confidence - Compliant Message
 ```json
@@ -375,7 +448,7 @@ Empty JSON for HTTP 400 Bad Request or HTTP 500 Internal Server Error
 ---
 
 
-## Endpoint validateMessage Flow
+### Endpoint validateMessage Flow
 
 1. **Validate Request**
    - Check all required fields present (id, title, body)
@@ -522,7 +595,7 @@ Based on testing/fine tuning results, temperature can be changed to achieve bett
 
 
 
-## LLM Prompt Template
+### LLM Prompt Template
 ```
 As a member of the moderation team, verify the following message for compliance with community policies.
 
@@ -599,7 +672,7 @@ Important:
 
 ---
 
-## Example LLM Responses
+### Example LLM Responses
 
 Simple LLM JSON response
 ```json
@@ -666,7 +739,7 @@ where:
 
 ### Backend services to support Frontend 
 
-### Endpoint getMessagesToReview 
+#### Endpoint getMessagesToReview
 GET /api/getMessagesToReview
 
 Endpoint returns messages that required human review 
@@ -699,7 +772,7 @@ LIMIT 5000
 In case of database error, service returns response 500 - Internal server error 
 
 
-### Endpoint getMessageDetails 
+#### Endpoint getMessageDetails 
 Basic path GET /api/getMessageDetails
 
 Endpoint to get message details for human review - returns full information on a given message  
@@ -714,10 +787,10 @@ Response:
 {
   "message": {
     "title": "message title", 
-	"body": [
-	  "Initial message", 
-	  "reply"
-	], 
+    "body": [
+      "Initial message", 
+      "reply"
+    ], 
     "reason": "OFF_TOPIC",
     "reasoning": "Message discusses political topics but tangentially relates to hobby community. Borderline off-topic.",
     "compliance_confidence": 0.55,
@@ -734,7 +807,7 @@ SELECT * FROM messages WHERE id = {id_parameter}
 In case of database error, service returns response 500 - Internal server error 
 
 
-### Endpoint setUserDecision  
+#### Endpoint setUserDecision  
 Endpoint updates the given message with a user decision  
 
 REST method PATCH  
@@ -786,7 +859,7 @@ In case of external endpoint error, service returns 500 - Internal server error
 
 ### Content Moderator Database 
 
-## Database Schema
+### Database Schema
 
 ### Table: Messages
 
@@ -853,7 +926,7 @@ Button "Decline" action:
 If an error occurs during service calls, user received information about HTTP error code: "Error occurred. Code: 500" 
 
 
-## View to Create Messages 
+### View to Create Messages 
 Functionality is required for test purposes 
 Possibility to simulate sending a message for verification by providing: 
 - message title - text input with limit characters 100
@@ -911,7 +984,7 @@ LLM configuration:
 
 - policies.md file should be loaded from Specification/policies.md during application start 
 
-## Configuration (.env)
+### Configuration (.env)
 
 ```ini
 # Anthropic API Configuration
