@@ -249,9 +249,9 @@ In order to test the solution, two mechanism will be used:
 Testing framework can be use for Solution tuning and Regression testing to make sure that new changes won't influence solution performance. 
 
 
-### Solution Success Metrics
- 
-### Primary Metrics
+### Solution Success 
+
+#### Primary Metrics
 
 | Metric | Target | Measurement | Priority |
 |--------|--------|-------------|----------|
@@ -314,7 +314,9 @@ Testing framework can be use for Solution tuning and Regression testing to make 
 - **Response:** Incident triggers immediate policy and threshold review
 
 
-### The Content Moderator project is successful if:
+### Project Success Criteria
+
+The Content Moderator project is successful if:
 
 **1. False Negatives <1%** (harmful content rarely gets through)  
 **2. Automation Rate 70-80%** (efficiency achieved without sacrificing safety)  
@@ -828,8 +830,8 @@ Endpoint does the following actions:
 
 Update the message with id provided in the query parameter in the database 
 set the following fields: 
--- set mdate to current date and time 
--- set user_decision to USER_VERIFIED_POSITIVE or USER_VERIFIED_NEGATIVE
+- set mdate to current date and time 
+- set user_decision to USER_VERIFIED_POSITIVE or USER_VERIFIED_NEGATIVE
 
 
 -- informs the external system about user decision 
